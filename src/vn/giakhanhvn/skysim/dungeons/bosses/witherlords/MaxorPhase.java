@@ -41,6 +41,7 @@ import vn.giakhanhvn.skysim.util.Sputnik;
 import vn.giakhanhvn.skysim.util.TimedActions;
 import vn.giakhanhvn.skysim.util.STask.RunMode;
 import org.bukkit.entity.Wither;
+import org.bukkit.entity.Zombie;
 
 public class MaxorPhase implements WitherLordPhase {
 	public WitherLordsHandle lords;
@@ -878,15 +879,19 @@ public class MaxorPhase implements WitherLordPhase {
 			return enloc.distance(lasrLoc);
 		}
 		
-		// TODO
 		@Override
 		public double getEntityMaxHealth() {
-			return 100_000_000;
+			return GameplaySystem.getMaxorHealth(core.lords.getHandle().getDifficulty());
 		}
 	
 		@Override
 		public double getDamageDealt() {
-			return 24_000;
+			return GameplaySystem.getMaxorDPS(core.lords.getHandle().getDifficulty());
+		}
+		
+		@Override
+		public double getBossDefensePercentage() {
+			return GameplaySystem.getMaxorDefense(core.lords.getHandle().getDifficulty());
 		}
 		
 		@Override

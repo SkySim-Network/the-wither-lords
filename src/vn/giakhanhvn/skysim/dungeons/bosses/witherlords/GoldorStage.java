@@ -40,6 +40,7 @@ public abstract class GoldorStage {
 	// related to terminals
 	List<Location> terminalBlocks = new ArrayList<>();
 	List<Location> leverBlocks = new ArrayList<>();
+	public boolean hasMelodyGenerated = false; // prevents 2+ melodies from generating at the same time
 	
 	// related to doors
 	List<Location> doorHolder = new ArrayList<>(2);
@@ -198,7 +199,7 @@ public abstract class GoldorStage {
 			
 			// spawn a falling block that rides an armorstand
 			ArmorStand as = (ArmorStand) world.spawnEntity(
-				block.getLocation().add(0.5,-2,0.5), EntityType.ARMOR_STAND
+				block.getLocation().add(0.5, -2, 0.5), EntityType.ARMOR_STAND
 			);
 			as.setGravity(false);
 			as.setVisible(false);
@@ -220,7 +221,7 @@ public abstract class GoldorStage {
 		
 		// translate down every 0.45 blocks per tick and destroying it after it submerges
 		new STask().run(s -> {
-			if (goldorPhase.lords.dungeonEnded() || s.counter >= 10 * 20) {
+			if (goldorPhase.lords.dungeonEnded() || s.counter >= 200) {
 				s.kill();
 				return;
 			}

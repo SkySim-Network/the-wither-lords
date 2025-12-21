@@ -70,7 +70,7 @@ public class StartsWith extends TerminalSystemGUI {
 		this.itemsWithLetterCount = maxFrequency;
  		
 		// set the title
-		this.title = "What starts with " + (selectedLetter.toUpperCase()) + "?";
+		this.title = "What starts with: '" + (selectedLetter.toUpperCase()) + "'?";
 	}
 
 	@Override

@@ -1,5 +1,7 @@
 package vn.giakhanhvn.skysim.dungeons.bosses.witherlords.utils;
 
+import vn.giakhanhvn.skysim.dungeons.bosses.witherlords.GameplaySystem;
+import vn.giakhanhvn.skysim.dungeons.systems.Dungeon;
 import vn.giakhanhvn.skysim.dungeons.systems.DungeonEntity;
 import vn.giakhanhvn.skysim.entity.EntityFunction;
 import vn.giakhanhvn.skysim.entity.SEntityEquipment;
@@ -8,6 +10,11 @@ import vn.giakhanhvn.skysim.item.SMaterial;
 
 public class WitherMinions {
 	public static class WitherMiner implements DungeonEntity, EntityFunction, SkeletonStatistics {
+		Dungeon dungeon;
+		public WitherMiner(Dungeon dungeon) {
+			this.dungeon = dungeon;
+		}
+		
 		@Override
 		public String getEntityName() {
 			return "Wither Miner";
@@ -15,12 +22,12 @@ public class WitherMinions {
 
 		@Override
 		public double getEntityMaxHealth() {
-			return 10_000_000;
+			return GameplaySystem.getWitherSkeletonHealth(dungeon.getDifficulty());
 		}
 
 		@Override
 		public double getDamageDealt() {
-			return 14000.0;
+			return GameplaySystem.getWitherSkeletonDPS(dungeon.getDifficulty());
 		}
 
 		@Override
@@ -52,6 +59,11 @@ public class WitherMinions {
 	}
 	
 	public static class WitherGuard implements DungeonEntity, EntityFunction, SkeletonStatistics {
+		Dungeon dungeon;
+		public WitherGuard(Dungeon dungeon) {
+			this.dungeon = dungeon;
+		}
+		
 		@Override
 		public String getEntityName() {
 			return "Wither Guard";
@@ -59,14 +71,14 @@ public class WitherMinions {
 
 		@Override
 		public double getEntityMaxHealth() {
-			return 3_500_000;
+			return GameplaySystem.getWitherSkeletonHealth(dungeon.getDifficulty()) / 2;
 		}
 
 		@Override
 		public double getDamageDealt() {
-			return 20000.0;
+			return GameplaySystem.getWitherSkeletonDPS(dungeon.getDifficulty());
 		}
-
+		
 		@Override
 		public SEntityEquipment getEntityEquipment() {
 			return new SEntityEquipment(

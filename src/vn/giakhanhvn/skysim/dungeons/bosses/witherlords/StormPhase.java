@@ -46,7 +46,7 @@ public class StormPhase implements WitherLordPhase {
 	static final int PILLAR_GAP = PILLAR_MAX_HEIGHT - 1; // the gap is the amount of blocks you need to subtract so that the crusher can reach the floor, in this case, 23 - 1 = 22
 	static final int PILLAR_SPEED = 4; // the unit of movement (4 ticks per move)
 	
-	static final int CRUSHER_GRACE_PERIOD = 80; // REAL hypixel's default is 30 ticks
+	static final int CRUSHER_GRACE_PERIOD = Sputnik.core().getDungeonPreferences().isDebug() ? 80 : 30; // REAL hypixel's default is 30 ticks
 	
 	static final int GREEN_CRUSHER = 0; // indicies
 	static final int YELLOW_CRUSHER = 1;
@@ -883,6 +883,7 @@ public class StormPhase implements WitherLordPhase {
 					User user = du.getInternal();
 					// strike lightning for dramatic effect, duh
 					strikeLightning(du.getInternal().getLocation(), false);
+					strikeLightningsConsecutively(user.getLocation(), 4);
 					// damage for 85% of the players' hp
 					double absorbedDmg = user.toBukkitPlayer().getMaxHealth() * 0.85;
 					damagePlayer(
@@ -1047,14 +1048,19 @@ public class StormPhase implements WitherLordPhase {
 		
 		@Override
 		public double getEntityMaxHealth() {
-			return 400_000_000;
+			return GameplaySystem.getStormHealth(core.lords.getHandle().getDifficulty());
 		}
 	
 		@Override
 		public double getDamageDealt() {
-			return 25_000;
+			return GameplaySystem.getStormDPS(core.lords.getHandle().getDifficulty());
 		}
-	
+		
+		@Override
+		public double getBossDefensePercentage() {
+			return GameplaySystem.getStormDefense(core.lords.getHandle().getDifficulty());
+		}
+		
 		@Override
 		public double getXPDropped() {
 			return 0;

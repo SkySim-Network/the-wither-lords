@@ -22,6 +22,7 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.Wither;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.ItemStack;
@@ -207,23 +208,37 @@ public class NecronPhase implements WitherLordPhase {
 	public static class NecronWither extends CustomWitherEntity {
 		// the reference to outside systems
 		private NecronPhase core;
+		// for greatsword spin
+		public static final double RADIANS_PER_TICK = (2f * Math.PI) / 100f;
 		static final double NECRON_VECTOR_SPEED = StormPhase.STORM_VECTOR_SPEED * 2;
 		
-		// flags
-		public boolean frenzyActivated; // if the boss frenzy is already active
-		public boolean dying; // if the boss is dying
-		
-		// after explosion ended (frenzy end), he will stun for 10s, during this period
-		// none of his special ability can be used
+		/** true if the boss frenzy is already active */
+		public boolean frenzyActivated = false;
+		/** true if the boss is dying */
+		public boolean dying = false;
+		/** After explosion ended (frenzy end), he will stun for 10s, during this period
+		 * none of his special ability can be used (the ? on top of his head) */
 		public boolean stun = false;
+		/** this is true after the player enter Necron's bossroom */
+		public boolean fightStarted = false;
+		/** this is true after Necron drops user to lava pit (finished his yapping) */
+		public boolean finishedPreFight = false;
 		
 		// necron floor y
 		public int necronFloorY;
+		// internal timer (in ticks)
+		private long counter = 0;
+		// count the hits to manage the frenzy attack
+		private int hitCounter = 0;
 		
-		// construct
-		public NecronWither(WorldServer world, NecronPhase storm) {
+		// abilities flags
+		public boolean[] activatedAbilities = new boolean[4];
+		public int[] cooldownAbilities = new int[4];
+		
+		// constructor
+		public NecronWither(WorldServer world, NecronPhase necron) {
 			super(world, 1);
-			this.core = storm;
+			this.core = necron;
 			this.setShield(true);
 			this.entityOwner = core.lords.getHandle();
 			this.hoverHeight = 1f;
@@ -241,10 +256,12 @@ public class NecronPhase implements WitherLordPhase {
 		
 		// dialogs
 		static String[] WELCOME_DIALOG = new String[] { 
-			"Welcome to Necron's Core, you have chosen, OR HAVE BEEN CHOSEN TO GET FUCK IN THE ASS.",
-			"FUCK YOU, FUCK YOU SO MUCH, LEAVE THE FUCKING CORE NOOOOW!",
-			"GET BACK IN THE FUCKING ENTRANCE AND GO BACK WHERE YOU FUCKING CAME FROM YOU FUCKING ASSHOLES",
-			"I fucking hate you so much... Fuck you %party_leader%. I hope you get RAN OVER BY A FUCKING TRAIN!"
+			"Finally, I heard so much about you. The Eye likes you very much.",
+			"It seems like the Guardian has fallen, congratulations...",
+			"I'm afraid, your journey ends now",
+			"My master and I spent centuries building this factory...and this army.",
+			"I won't allow you to destroy it all now.",
+			"Goodbye."
 		};
 		
 		static String IMPRESSIVE_TRICK = "That's a very impressive trick. I guess I'll have to handle this myself.";
@@ -284,17 +301,6 @@ public class NecronPhase implements WitherLordPhase {
 		public String getEntityName() {
 			return witherName();
 		}
-		
-		// internal timer
-		private long counter = 0;
-		// count the hits to manage the frenzy attack
-		private int hitCounter = 0;
-		// for greatsword spin
-		public static final double RADIANS_PER_TICK = (2f * Math.PI) / 100f;
-		
-		// abilities flags
-		public boolean[] activatedAbilities = new boolean[4];
-		public int[] cooldownAbilities = new int[4];
 		
 		// TODO: Abilities controller
 		static final int RAPID_FIRE = 0;
@@ -648,10 +654,8 @@ public class NecronPhase implements WitherLordPhase {
 			}
 		}
 		
-		// greatsword thingy
 		// the greatswords array (swords that will fly around necron) -- max 4
 		public GiantItemDisplay[] flyingSwords = new GiantItemDisplay[4];
-		
 		// TODO: Greatsword | throwing swords and shieet
 		public void greatswordActive() {
 			// if one special ability is already active OR on cooldown, return
@@ -871,7 +875,7 @@ public class NecronPhase implements WitherLordPhase {
 			// initiate the variables
 			this.frenzyActivated = true;
 			this.explosionRadius = 5;
-			this.hitCounter = -5; // prevent the boss from dying too soon
+			this.hitCounter = 0; // prevent the boss from dying too soon
 			
 			// freeze the wither during this period
 			this.frozen = true;
@@ -1039,16 +1043,13 @@ public class NecronPhase implements WitherLordPhase {
 		
 		public void attemptToReduceFrenzy() {
 			if (!frenzyActivated) return; // if not during frenzy, dont do shit
-			if (++hitCounter < 5) return; // every 3 hits reduce
+			if (++hitCounter < 5) return; // every 5 hits reduce
 			explosionRadius = Math.max(0, explosionRadius - 1);
 			// reset the hit counter
 			this.hitCounter = 0;
 		}
 		
-		// this will be toggled to true after Necron drops user to lava pit
-		boolean finishedPreFight = false;
-		List<ArmorStand> hoveringPlayers = new ArrayList<>();
-		
+		List<ArmorStand> hoveringPlayers = new ArrayList<>();	
 		// hover the players during intro dialog
 		public void hoveringPlayer() {
 			// spawn armorstands for all players
@@ -1180,7 +1181,6 @@ public class NecronPhase implements WitherLordPhase {
 			return 0;
 		}
 		
-		boolean fightStarted = false;
 		// TODO: NECRON START | actually starting the fight
 		public void startNecronPhase() {
 			if (fightStarted) return;
@@ -1300,19 +1300,46 @@ public class NecronPhase implements WitherLordPhase {
 				.wait(40).add(() -> {
 					say(null);
 					setHealth(0); // kill the wither
-					// pops tnt out // TODO
+					
+					// pops tnt out and end dungeon
+					Vector[] directions = new Vector[] {
+						new Vector(0.28, 0.65, 0), // east (small x)
+						new Vector(-0.28, 0.65, 0), // west
+						new Vector(0, 0.65, 0.28), // south
+						new Vector(0, 0.65, -0.28) // north
+					};
+					// all 4 directions
+					for (Vector dir : directions) {
+						TNTPrimed tnt = core.world.spawn(wither.getLocation(), TNTPrimed.class);
+						tnt.setVelocity(dir);
+						tnt.setFuseTicks(75);
+					}
+					
+					// after 3s, send the player to the rewards room
+					SUtil.delay(() -> {
+						core.lords.getHandle().getCurrentPlayersList().forEach(player -> {
+							// the room where chests will spawn
+							player.getInternal().teleport(core.lords.rewardsRoomLocation);
+						});
+						core.lords.getHandle().endDungeon(false);
+					}, 70);
 				}).run();
 			}
 		}
 		
 		@Override
 		public double getEntityMaxHealth() {
-			return 1_100_000_000;
+			return GameplaySystem.getNecronHealth(core.lords.getHandle().getDifficulty());
 		}
-
+	
 		@Override
 		public double getDamageDealt() {
-			return 30_000;
+			return GameplaySystem.getNecronDPS(core.lords.getHandle().getDifficulty());
+		}
+		
+		@Override
+		public double getBossDefensePercentage() {
+			return GameplaySystem.getNecronDefense(core.lords.getHandle().getDifficulty());
 		}
 
 		@Override

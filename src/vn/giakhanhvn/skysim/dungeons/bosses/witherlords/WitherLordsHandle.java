@@ -1,12 +1,15 @@
 package vn.giakhanhvn.skysim.dungeons.bosses.witherlords;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.util.Vector;
 
 import vn.giakhanhvn.skysim.dungeons.features.watcher.GlobalBossBar;
@@ -25,8 +28,10 @@ public class WitherLordsHandle extends IDungeonBoss {
 	static final double DIABOX_OFFSET = NAME_OFFSET + 0.3D;
 	static final String ENRAGED_TEXTURE = "ecc58cb55b1a11e6d88c2d4d1a6366c23887dee26304bda412c4a51825f199";
 	
-	// where the team spawns, duh
+	// necessary locations
 	Location playersSpawnPoint;
+	Location rewardsRoomLocation;
+	Location chestsLocation;
 	
 	// phase 1
 	Location maxorSpawnPoint; // self explanatory
@@ -120,17 +125,17 @@ public class WitherLordsHandle extends IDungeonBoss {
 
 	@Override
 	public Location getSpawnLocation() {
-		return playersSpawnPoint;
+		return Sputnik.setYawOf(playersSpawnPoint, 180);
 	}
 
 	@Override
 	public Location getRewardChestsOffsets() {
-		return playersSpawnPoint;
+		return chestsLocation;
 	}
 
 	@Override
 	public String bossName() {
-		return "Maxor, Storm, Goldor, Necron and ...";
+		return "The Wither Lords";
 	}
 
 	@Override
@@ -214,6 +219,18 @@ public class WitherLordsHandle extends IDungeonBoss {
 		// PLAYER SPAWN
 		if (enumData.equals("spawn")) {
 			playersSpawnPoint = Sputnik.getBlockMatchPos(loc);
+			return;
+		}
+		
+		// REWARDS ROOM
+		if (enumData.equals("end_player_teleport")) {
+			rewardsRoomLocation = Sputnik.setYawOf(Sputnik.getBlockMatchPos(loc), 180);
+			return;
+		}
+		
+		// CHESTS LOCATION
+		if (enumData.equals("reward_chests")) {
+			chestsLocation = Sputnik.getBlockMatchPos(loc).add(0, -1, 0);
 			return;
 		}
 		
@@ -451,10 +468,16 @@ public class WitherLordsHandle extends IDungeonBoss {
 		this.currentPhase.test(executor, args);
 	}
 	
+	private static final Set<Material> LAVA_TYPES = EnumSet.of(
+		Material.LAVA,
+		Material.STATIONARY_LAVA
+	);
+
 	public void lavaJump(User user) {
 		if (user.isAGhost()) return;
-		if (!user.getCurrentBlock().getType().toString().toLowerCase().contains("lava")) return; 
+		if (!LAVA_TYPES.contains(user.getCurrentBlock().getType())) return; 
 		user.toBukkitPlayer().setVelocity(new Vector(0, 3.5, 0));
+		//user.damage(user.toBukkitPlayer().getMaxHealth() * 0.25, DamageCause.FIRE, null);
 	}
 	
 	public boolean dungeonEnded() {
@@ -488,7 +511,10 @@ public class WitherLordsHandle extends IDungeonBoss {
 	 * @return the spawned entity
 	 */
 	public LivingEntity spawnWitherMinerOrGuard(Location spawnLoc) {
-		LivingEntity e = (LivingEntity) new SEntity(spawnLoc, SUtil.random(0, 1) == 1 ? SEntityType.WITHER_GUARD : SEntityType.WITHER_MINER).getEntity();
+		LivingEntity e = (LivingEntity) new SEntity(spawnLoc, 
+			SUtil.random(0, 1) == 1 ? SEntityType.WITHER_GUARD : SEntityType.WITHER_MINER,
+			getHandle()
+		).getEntity();
 		spawnedSkeletons.add(e);
 		return e;
 	}

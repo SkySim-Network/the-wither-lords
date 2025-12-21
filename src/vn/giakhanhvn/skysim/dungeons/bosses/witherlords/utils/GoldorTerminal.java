@@ -1,7 +1,5 @@
 package vn.giakhanhvn.skysim.dungeons.bosses.witherlords.utils;
 
-import java.lang.reflect.InvocationTargetException;
-
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -25,10 +23,11 @@ public class GoldorTerminal {
 	static final Class<?>[] REGISTERED_TERMINALS = {
 		ClickInOrder.class,
 		CorrectPanes.class,
-		Melody.class,
 		Rubix.class,
-		StartsWith.class
+		StartsWith.class,
+		Melody.class // always in here, REGARDLESS
 	};
+	static final int MELODY_INDEX = REGISTERED_TERMINALS.length - 1;
 	
 	// the indicator
 	public DynamicHologram hologram;
@@ -51,7 +50,19 @@ public class GoldorTerminal {
 		this.stage = stage;
 		
 		// assign a terminal type
-		this.selectedType = (Class<TerminalSystemGUI>) SUtil.randArr(REGISTERED_TERMINALS);
+		if (stage.hasMelodyGenerated) {
+			// if the melody is already generated, exclude it from the potential terminals
+			this.selectedType = (Class<TerminalSystemGUI>) SUtil.randArr(
+				REGISTERED_TERMINALS, 0, MELODY_INDEX - 1
+			);
+		} else {
+			// select a random one from all possible cases
+			this.selectedType = (Class<TerminalSystemGUI>) SUtil.randArr(REGISTERED_TERMINALS);
+			// if found a melody, toggle the flag for this stage
+			if (selectedType.equals(Melody.class) && !stage.hasMelodyGenerated) {
+				stage.hasMelodyGenerated = true;
+			}
+		}
 		
 		Location head = Sputnik.getBlockMatchPos(blockFront.getLocation());
 		// initialize the hologram

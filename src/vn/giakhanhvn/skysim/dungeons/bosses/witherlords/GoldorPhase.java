@@ -34,8 +34,8 @@ import vn.giakhanhvn.skysim.util.TimedActions;
 import vn.giakhanhvn.skysim.util.customentities.GiantItemDisplay;
 
 public class GoldorPhase implements WitherLordPhase {
-	static final int SIMON_SAYS_PHASE = 2;
-	
+	static final int SIMON_SAYS_PHASE = Sputnik.core().getDungeonPreferences().isDebug() ? 2 : 5;
+
 	public WitherLordsHandle lords;
 	
 	public Wither wither;
@@ -188,7 +188,7 @@ public class GoldorPhase implements WitherLordPhase {
 		// he needs to accelerate to reach that point
 		// EXCLUSION: will not speed up if Goldor is moving from 0 to stage 1 begin
 		if (currentWitherLocation != 0 && currentWitherLocation != index) {
-			goldorWither.accelerate = true;
+			goldorWither.accelerating = true;
 		}
 		
 		// say the dialog
@@ -219,7 +219,7 @@ public class GoldorPhase implements WitherLordPhase {
 			// he's able to shoot shit out of his ass now
 			this.enteredCore = true;
 			// Accelerate during the arrival of the golden door
-			goldorWither.accelerate = true;
+			goldorWither.accelerating = true;
 			// resets the hit counter
 			goldorWither.hitCounter = 0;
 			
@@ -232,7 +232,7 @@ public class GoldorPhase implements WitherLordPhase {
 				}).run();
 				// he should not accelerate during this period
 				// as he is approaching the core dropdown (at the skull)
-				goldorWither.accelerate = false;
+				goldorWither.accelerating = false;
 				// he will slowly move to his final destination once nea
 				goldorWither.moveToLocation(lords.finalGoldorLocation, GoldorWither.GOLDOR_VECTOR_SPEED * 2, () -> {
 					// we dont do anything when he reaches this point
@@ -241,7 +241,7 @@ public class GoldorPhase implements WitherLordPhase {
 		});
 		
 		// accelerate
-		goldorWither.accelerate = true;
+		goldorWither.accelerating = true;
 	}
 	
 	public DungeonUser getRandomPlayer() {
@@ -282,7 +282,7 @@ public class GoldorPhase implements WitherLordPhase {
 		
 		// the reference to outside systems
 		private GoldorPhase core;
-		static final float GOLDOR_VECTOR_SPEED = 0.05f;
+		static final float GOLDOR_VECTOR_SPEED = 0.04f;
 		
 		// flags
 		// dying and stopTicking is basically the same
@@ -292,6 +292,14 @@ public class GoldorPhase implements WitherLordPhase {
 		// use any of his abilities but still can update necessities like bossbar and nametags
 		public boolean stopTicking = false; // if true, the boss will minimize the tick function
 		// as much as possible
+		
+		// if the boss is accelerating, the vector speed factor will be SET to 6
+		public boolean accelerating = false;
+		
+		// internal clock
+		private long counter = 0;
+		// count the hits to slow the wither down
+		private int hitCounter = 0;
 		
 		// construct
 		public GoldorWither(WorldServer world, GoldorPhase goldor) {
@@ -362,8 +370,6 @@ public class GoldorPhase implements WitherLordPhase {
 			}).run();
 		}
 		
-		// if the boss is accelerating, the vector speed factor will be SET to 6
-		public boolean accelerate = false;
 		// the queued moves
 		public Queue<MovementJob> moves = new ArrayDeque<>();
 		
@@ -381,7 +387,7 @@ public class GoldorPhase implements WitherLordPhase {
 		
 		private void processNextMove() {
 			// stop the acceleration on new move
-			accelerate = false;
+			accelerating = false;
 			
 			if (!moves.isEmpty()) {
 				// Poll the next movement job
@@ -405,9 +411,6 @@ public class GoldorPhase implements WitherLordPhase {
 		
 		// the greatswords array (swords that will fly around goldor)
 		public GiantItemDisplay[] flyingSwords = new GiantItemDisplay[4];
-		private long counter = 0;
-		// count the hits to slow the wither down
-		private int hitCounter = 0;
 		
 		/** for the greatswords */
 		public static final double RADIANS_PER_TICK = (2f * Math.PI) / 100f;
@@ -439,7 +442,7 @@ public class GoldorPhase implements WitherLordPhase {
 			// synchronize speed with hit counter
 			// the slowest speed factor is 1 - 0.095 * hitCounter (which is 0.05x the speed of normal Goldor)
 			// the fastest factor is 8x the speed
-			this.speedAcceleratorFactor = accelerate ? 8f : (1f - (Math.min(10, hitCounter) * 0.095f));
+			this.speedAcceleratorFactor = accelerating ? 8f : (1f - (Math.min(10, hitCounter) * 0.095f));
 			
 			// clear the hit counter every 1.5s
 			if (counter % 30 == 0) {
@@ -453,7 +456,7 @@ public class GoldorPhase implements WitherLordPhase {
 			
 			// shadow wave (goldor's frenzy), but WAY more powerful
 			// grace period: when goldor is accelerating, he wont damage
-			if (counter % 20 == 0 && !accelerate) {
+			if (counter % 20 == 0 && !accelerating) {
 				// deal immense damage
 				// SKYSIM TWIST: Goldor will deal 33.3% of players' HP (true dmg)
 				// WHILE NOT in the core. Inside the core, Goldor will deal
@@ -527,13 +530,14 @@ public class GoldorPhase implements WitherLordPhase {
 			
 			// kill players behind, every 5s
 			// only if they havent entered the core yet
-			if (counter % 100 == 0 && !(core.finishedLastTerminals || core.enteredCore)) {
+			// and if Goldor is not accelerating
+			if (counter % 140 == 0 && !this.accelerating && !(core.finishedLastTerminals || core.enteredCore)) {
 				// loop through all players alive at that point, calculate if they're behind or front
 				for (DungeonUser p : core.lords.getHandle().getAlivePlayersList()) {
 					Vector pDir = p.getInternal().getLocation().toVector().subtract(
 						wither.getLocation().toVector()
-					);
-					Vector eDir = wither.getLocation().getDirection();
+					).normalize();
+					Vector eDir = wither.getLocation().getDirection().normalize();
 					
 					// the angle (atan), stolen from spigotorg
 					double xv = pDir.getX() * eDir.getZ() - pDir.getZ() * eDir.getX();
@@ -543,7 +547,7 @@ public class GoldorPhase implements WitherLordPhase {
 					
 					// actions IF the player is behind AND distance > 10
 					boolean front = angleInDegrees >= -90 && angleInDegrees <= 90;
-					boolean farEnough = wither.getLocation().distanceSquared(p.getInternal().getLocation()) >= 100;
+					boolean farEnough = wither.getLocation().distanceSquared(p.getInternal().getLocation()) >= 225;
 					
 					// if back and far enough AND
 					// the boss has hit the first stage
@@ -816,12 +820,17 @@ public class GoldorPhase implements WitherLordPhase {
 		
 		@Override
 		public double getEntityMaxHealth() {
-			return 750_000_000;
+			return GameplaySystem.getGoldorHealth(core.lords.getHandle().getDifficulty());
 		}
-
+		
 		@Override
 		public double getDamageDealt() {
-			return 10_000;
+			return GameplaySystem.getGoldorDPS(core.lords.getHandle().getDifficulty());
+		}
+		
+		@Override
+		public double getBossDefensePercentage() {
+			return GameplaySystem.getGoldorDefense(core.lords.getHandle().getDifficulty());
 		}
 		
 		@Override

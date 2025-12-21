@@ -13,6 +13,7 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Fireball;
 import org.bukkit.entity.LargeFireball;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.Wither;
 import org.bukkit.entity.WitherSkull;
@@ -47,6 +48,7 @@ import vn.giakhanhvn.skysim.entity.SEntity;
 import vn.giakhanhvn.skysim.entity.SEntityType;
 import vn.giakhanhvn.skysim.entity.nms.SNMSEntity;
 import vn.giakhanhvn.skysim.user.User;
+import vn.giakhanhvn.skysim.util.EntityManager;
 import vn.giakhanhvn.skysim.util.PacketEntity;
 import vn.giakhanhvn.skysim.util.STask;
 import vn.giakhanhvn.skysim.util.Sputnik;
@@ -95,6 +97,11 @@ public abstract class CustomWitherEntity extends EntityWither implements SNMSEnt
 		Sputnik.sendPacket(wither.getWorld(), new PacketPlayOutEntityMetadata(getId(), datawatcher, true));
 	}
 	
+	/**
+	 * @return the boss defense value, in percentage
+	 */
+	public abstract double getBossDefensePercentage();
+	
 	public abstract void onTickAsync();
 	
 	/**
@@ -133,7 +140,10 @@ public abstract class CustomWitherEntity extends EntityWither implements SNMSEnt
 		// Initial setups
 		entity.setMetadata(SConsts.NO_SYS_HOLONAME, new FixedMetadataValue(SkySimEngine.getPlugin(), true));
 		entity.setCustomNameVisible(false);
-
+		
+		// Sets up Boss Defense values
+		EntityManager.setEntityDefense(entity, getBossDefensePercentage());
+		
 		// Sets up Hologram entity (for name)
 		EntityArmorStand hologramName = new EntityArmorStand(this.world);
 		hologramName.setInvisible(true);
@@ -203,6 +213,17 @@ public abstract class CustomWitherEntity extends EntityWither implements SNMSEnt
 		LivingEntity target = this.wither.getTarget();
 		
 		if (target == null || frozen || isMoving) return;
+		
+		// if the player is dead, ignore it
+		if (target instanceof Player) {
+			Player p = (Player) target;
+			User user = User.getUser(p);
+			if (user.isAGhost()) {
+				selectTarget();
+				return;
+			}
+		}
+		
 		Location targetLocation = target.getLocation();
 		Location witherLocation = wither.getLocation();
  		
@@ -249,8 +270,9 @@ public abstract class CustomWitherEntity extends EntityWither implements SNMSEnt
 	}
 	
 	@Override
-	public void m() {
+	public void m() { // on tick (external)
 		if (this.bD()) {
+			// set gravity all to 0 (disable gravity)
 			this.aY = false;
 			this.aZ = 0.0F;
 			this.ba = 0.0F;
@@ -470,6 +492,8 @@ public abstract class CustomWitherEntity extends EntityWither implements SNMSEnt
 			fireball.getLocation().playEffect(Effect.EXPLOSION_HUGE, 0);
 			fireball.getLocation().playSound(Sound.EXPLODE, 1, 0);
 			SUtil.lightningLater(fireball.getLocation(), true, 0);
+			// strike 6 consecutive 
+			strikeLightningsConsecutively(fireball.getLocation(), 6);
 			
 			// dmg will be 5% of max hp
 			Sputnik.hittablePlayers(fireball.getLocation(), 5, 5, 5).forEach(p -> {
@@ -482,24 +506,26 @@ public abstract class CustomWitherEntity extends EntityWither implements SNMSEnt
 		});
 	}
 	
+	public void strikeLightningsConsecutively(Location l, int lightningCount) {
+		TimedActions actions = new TimedActions();
+		for (int i = 0; i < lightningCount; i++) {
+			actions.add(() -> {
+				// striek lightning around 5 blocks of the player
+				l.add(SUtil.randInt(-5, 5), 0, SUtil.randInt(-5, 5));
+				// execute
+				strikeLightning(l, true);
+			}).wait(2);
+		}
+		actions.run();
+	}
+	
 	// static field ability, strike lightning around alive players
 	// used by Storm & Necron
 	public void staticField() {
 		Dungeon dungeon = this.entityOwner;
 		dungeon.getAlivePlayersList().forEach(u -> {
 			int lightingCount = 8; // strike 8 consecutive lightnings
-			TimedActions actions = new TimedActions();
-
-			for (int i = 0; i < lightingCount; i++) {
-				actions.add(() -> {
-					// striek lightning around 5 blocks of the player
-					Location l = u.getInternal().getLocation();
-					l.add(SUtil.randInt(-5, 5), 0, SUtil.randInt(-5, 5));
-					// execute
-					strikeLightning(l, true);
-				}).wait(2);
-			}
-			actions.run();
+			strikeLightningsConsecutively(u.getInternal().getLocation(), lightingCount);
 		});
 	}
 	
