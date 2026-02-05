@@ -13,7 +13,7 @@ The **Wither Lords Boss Fight** featuring Maxor, Storm, Goldor, and Necron repre
 
 The implementation follows established programming conventions and structured design patterns (i think). It is provided to support learning, research, and adaptation by the community.
 
-The codebase is "well documented", with adaquate coverage of internal architecture, control flow, algorithmic decisions, and design rationale across all phases of the fight. Make sure to read it. (*The code is not perfect, and some design or implementation decisions may be suboptimal or inefficient in certain areas.*)
+The codebase is "well documented" (I have literally gone through the **entire god fucking damn codebase** and serveral layers of hell to **LITTER every single fucking line** with comments so the average Joe could grasp the concept easily), with adaquate coverage of internal architecture, control flow, algorithmic decisions, and design rationale across all phases of the fight. Make sure to read it. (*The code is not perfect, and some design or implementation decisions may be suboptimal or inefficient in certain areas.*)
 
 ## References
 
